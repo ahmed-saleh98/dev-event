@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { validateEventForm } from '@/lib/validation/event.validation';
 import { EventFormData, ValidationErrors } from '@/lib/types/event';
@@ -239,20 +239,20 @@ const CreateEventPage = () => {
             maxLength={VALIDATION.MAX_TITLE_LENGTH}
             showCharCount
           />
-
-          <FormFieldWithIcon
-            label="Event Date"
-            name="date"
-            type="date"
-            value={formData.date}
-            onChange={handleInputChange}
-            icon="/icons/calendar.svg"
-            iconAlt="calendar"
-            required
-            error={fieldErrors.date}
-            min={new Date().toISOString().split('T')[0]}
-          />
-
+          <Suspense fallback={<div>Loading...</div>}>
+            <FormFieldWithIcon
+              label="Event Date"
+              name="date"
+              type="date"
+              value={formData.date}
+              onChange={handleInputChange}
+              icon="/icons/calendar.svg"
+              iconAlt="calendar"
+              required
+              error={fieldErrors.date}
+              min={new Date().toISOString().split('T')[0]}
+            />
+          </Suspense>
           <FormFieldWithIcon
             label="Event Time"
             name="time"
