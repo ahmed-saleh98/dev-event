@@ -7,9 +7,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 /**
  * Home Page Component
- * 
+ *
  * Displays the main landing page with featured events.
- * 
+ *
  * Caching:
  * - Uses Next.js cache with 1-hour lifetime
  * - Cache is invalidated when new events are created (via revalidatePath in API)
@@ -40,7 +40,7 @@ const page = async () => {
           {events &&
             events.length > 0 &&
             events.map((event: IEvent) => (
-              <li key={event.title}>
+              <li key={event.slug}>
                 <EventCard {...event} />
               </li>
             ))}

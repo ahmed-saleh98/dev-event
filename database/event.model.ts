@@ -46,7 +46,6 @@ const EventSchema = new Schema<IEvent>(
       unique: true,
       lowercase: true,
       trim: true,
-      index: true,
     },
     // Full event description - required, max 1000 characters
     description: {

@@ -63,4 +63,8 @@ async function connectDB(): Promise<typeof mongoose> {
   return cached.conn;
 }
 
+if (!process.env.MONGODB_URI) {
+  throw new Error('MONGODB_URI environment variable is required');
+}
+
 export default connectDB;

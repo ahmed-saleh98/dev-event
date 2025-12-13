@@ -21,6 +21,7 @@ import { useState } from 'react';
 const BookEvent = ({ eventId, slug }: { eventId: string; slug: string }) => {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
 
   /**
    * Handles form submission for event booking
@@ -34,10 +35,12 @@ const BookEvent = ({ eventId, slug }: { eventId: string; slug: string }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent submission if email is empty
     if (!email.trim()) {
+      setError('Email is required');
       return;
     }
+
+    setError('');
 
     const { success } = await createBooking({ eventId, slug, email });
 
@@ -68,6 +71,8 @@ const BookEvent = ({ eventId, slug }: { eventId: string; slug: string }) => {
               placeholder="Enter your email address"
             />
           </div>
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
 
           <button type="submit" className="button-submit">
             Submit
