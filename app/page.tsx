@@ -2,9 +2,8 @@ import EventCard from '@/components/EventCard';
 import ExploreBtn from '@/components/ExploreBtn';
 import { IEvent } from '@/database';
 import { cacheLife } from 'next/cache';
-import events from '@/lib/constants';
 
-// const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
 /**
  * Home Page Component
@@ -22,9 +21,9 @@ const page = async () => {
 
   // Fetch events from API (cached for 1 hour)
   // Note: API now supports pagination, but home page fetches all events
-  // const response = await fetch(`${BASE_URL}/api/events?limit=100`);
-  // const data = await response.json();
-  // const events = data.data || data.events || []; // Support both new and old response formats
+  const response = await fetch(`${BASE_URL}/api/events?limit=100`);
+  const data = await response.json();
+  const events = data.data || data.events || []; // Support both new and old response formats
   return (
     <section>
       <h1 className="text-center">
