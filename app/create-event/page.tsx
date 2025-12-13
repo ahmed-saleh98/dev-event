@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { validateEventForm } from '@/lib/validation/event.validation';
 import { EventFormData, ValidationErrors } from '@/lib/types/event';
@@ -212,185 +212,183 @@ const CreateEventPage = () => {
   }
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <section className="min-h-screen py-12 px-4">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-center text-4xl font-bold mb-12">
-            Create an Event
-          </h1>
+    <section className="min-h-screen py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-center text-4xl font-bold mb-12">
+          Create an Event
+        </h1>
 
-          <form
-            onSubmit={handleSubmit}
-            className="bg-dark-100 border border-dark-200 rounded-lg p-8 space-y-6"
+        <form
+          onSubmit={handleSubmit}
+          className="bg-dark-100 border border-dark-200 rounded-lg p-8 space-y-6"
+        >
+          {error && (
+            <div className="bg-red-500/10 border border-red-500 text-red-400 rounded-lg p-4">
+              {error}
+            </div>
+          )}
+
+          <FormField
+            label="Event Title"
+            name="title"
+            value={formData.title}
+            onChange={handleInputChange}
+            placeholder="Enter event title"
+            required
+            error={fieldErrors.title}
+            maxLength={VALIDATION.MAX_TITLE_LENGTH}
+            showCharCount
+          />
+
+          <FormFieldWithIcon
+            label="Event Date"
+            name="date"
+            type="date"
+            value={formData.date}
+            onChange={handleInputChange}
+            icon="/icons/calendar.svg"
+            iconAlt="calendar"
+            required
+            error={fieldErrors.date}
+            min={new Date().toISOString().split('T')[0]}
+          />
+
+          <FormFieldWithIcon
+            label="Event Time"
+            name="time"
+            type="time"
+            value={formData.time}
+            onChange={handleInputChange}
+            icon="/icons/clock.svg"
+            iconAlt="clock"
+            required
+            error={fieldErrors.time}
+          />
+
+          <FormFieldWithIcon
+            label="Event Location"
+            name="venue"
+            type="text"
+            value={formData.venue}
+            onChange={handleInputChange}
+            icon="/icons/pin.svg"
+            iconAlt="location"
+            placeholder="Enter venue or online link"
+            required
+            error={fieldErrors.venue}
+          />
+
+          <FormField
+            label="Location Address"
+            name="location"
+            value={formData.location}
+            onChange={handleInputChange}
+            placeholder="Enter full address (e.g., City, Country)"
+            required
+            error={fieldErrors.location}
+          />
+
+          <FormSelect
+            label="Event Type"
+            name="mode"
+            value={formData.mode}
+            onChange={handleInputChange}
+            icon="/icons/mode.svg"
+            iconAlt="mode"
+            options={[
+              { value: 'online', label: 'Online' },
+              { value: 'offline', label: 'Offline' },
+              { value: 'hybrid', label: 'Hybrid' },
+            ]}
+            required
+            error={fieldErrors.mode}
+            placeholder="Select event type"
+          />
+
+          <FormFileUpload
+            label="Event Image / Banner"
+            name="image"
+            onChange={handleFileChange}
+            required
+            error={fieldErrors.image}
+            selectedFile={imageFile}
+            maxSizeMB={VALIDATION.MAX_FILE_SIZE / (1024 * 1024)}
+            allowedFormats="JPEG, PNG, WebP"
+          />
+
+          <FormField
+            label="Tags"
+            name="tags"
+            value={formData.tags}
+            onChange={handleInputChange}
+            placeholder="Add tags such as react, next, js"
+            required
+            error={fieldErrors.tags}
+            helpText="Separate tags with commas"
+          />
+
+          <FormTextarea
+            label="Event Description"
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            placeholder="Briefly describe the event"
+            required
+            error={fieldErrors.description}
+            maxLength={VALIDATION.MAX_DESCRIPTION_LENGTH}
+            showCharCount
+            rows={4}
+          />
+
+          <FormTextarea
+            label="Overview"
+            name="overview"
+            value={formData.overview}
+            onChange={handleInputChange}
+            placeholder="Brief overview of the event"
+            error={fieldErrors.overview}
+            maxLength={VALIDATION.MAX_OVERVIEW_LENGTH}
+            showCharCount
+            rows={3}
+          />
+
+          <FormField
+            label="Organizer"
+            name="organizer"
+            value={formData.organizer}
+            onChange={handleInputChange}
+            placeholder="Event organizer name"
+          />
+
+          <FormField
+            label="Target Audience"
+            name="audience"
+            value={formData.audience}
+            onChange={handleInputChange}
+            placeholder="e.g., Developers, Designers, etc."
+          />
+
+          <FormTextarea
+            label="Agenda"
+            name="agenda"
+            value={formData.agenda}
+            onChange={handleInputChange}
+            placeholder="Enter agenda items, one per line"
+            helpText="Enter one agenda item per line"
+            rows={4}
+          />
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-primary hover:bg-primary/90 w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-lg font-semibold text-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {error && (
-              <div className="bg-red-500/10 border border-red-500 text-red-400 rounded-lg p-4">
-                {error}
-              </div>
-            )}
-
-            <FormField
-              label="Event Title"
-              name="title"
-              value={formData.title}
-              onChange={handleInputChange}
-              placeholder="Enter event title"
-              required
-              error={fieldErrors.title}
-              maxLength={VALIDATION.MAX_TITLE_LENGTH}
-              showCharCount
-            />
-
-            <FormFieldWithIcon
-              label="Event Date"
-              name="date"
-              type="date"
-              value={formData.date}
-              onChange={handleInputChange}
-              icon="/icons/calendar.svg"
-              iconAlt="calendar"
-              required
-              error={fieldErrors.date}
-              min={new Date().toISOString().split('T')[0]}
-            />
-
-            <FormFieldWithIcon
-              label="Event Time"
-              name="time"
-              type="time"
-              value={formData.time}
-              onChange={handleInputChange}
-              icon="/icons/clock.svg"
-              iconAlt="clock"
-              required
-              error={fieldErrors.time}
-            />
-
-            <FormFieldWithIcon
-              label="Event Location"
-              name="venue"
-              type="text"
-              value={formData.venue}
-              onChange={handleInputChange}
-              icon="/icons/pin.svg"
-              iconAlt="location"
-              placeholder="Enter venue or online link"
-              required
-              error={fieldErrors.venue}
-            />
-
-            <FormField
-              label="Location Address"
-              name="location"
-              value={formData.location}
-              onChange={handleInputChange}
-              placeholder="Enter full address (e.g., City, Country)"
-              required
-              error={fieldErrors.location}
-            />
-
-            <FormSelect
-              label="Event Type"
-              name="mode"
-              value={formData.mode}
-              onChange={handleInputChange}
-              icon="/icons/mode.svg"
-              iconAlt="mode"
-              options={[
-                { value: 'online', label: 'Online' },
-                { value: 'offline', label: 'Offline' },
-                { value: 'hybrid', label: 'Hybrid' },
-              ]}
-              required
-              error={fieldErrors.mode}
-              placeholder="Select event type"
-            />
-
-            <FormFileUpload
-              label="Event Image / Banner"
-              name="image"
-              onChange={handleFileChange}
-              required
-              error={fieldErrors.image}
-              selectedFile={imageFile}
-              maxSizeMB={VALIDATION.MAX_FILE_SIZE / (1024 * 1024)}
-              allowedFormats="JPEG, PNG, WebP"
-            />
-
-            <FormField
-              label="Tags"
-              name="tags"
-              value={formData.tags}
-              onChange={handleInputChange}
-              placeholder="Add tags such as react, next, js"
-              required
-              error={fieldErrors.tags}
-              helpText="Separate tags with commas"
-            />
-
-            <FormTextarea
-              label="Event Description"
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              placeholder="Briefly describe the event"
-              required
-              error={fieldErrors.description}
-              maxLength={VALIDATION.MAX_DESCRIPTION_LENGTH}
-              showCharCount
-              rows={4}
-            />
-
-            <FormTextarea
-              label="Overview"
-              name="overview"
-              value={formData.overview}
-              onChange={handleInputChange}
-              placeholder="Brief overview of the event"
-              error={fieldErrors.overview}
-              maxLength={VALIDATION.MAX_OVERVIEW_LENGTH}
-              showCharCount
-              rows={3}
-            />
-
-            <FormField
-              label="Organizer"
-              name="organizer"
-              value={formData.organizer}
-              onChange={handleInputChange}
-              placeholder="Event organizer name"
-            />
-
-            <FormField
-              label="Target Audience"
-              name="audience"
-              value={formData.audience}
-              onChange={handleInputChange}
-              placeholder="e.g., Developers, Designers, etc."
-            />
-
-            <FormTextarea
-              label="Agenda"
-              name="agenda"
-              value={formData.agenda}
-              onChange={handleInputChange}
-              placeholder="Enter agenda items, one per line"
-              helpText="Enter one agenda item per line"
-              rows={4}
-            />
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-primary hover:bg-primary/90 w-full cursor-pointer items-center justify-center rounded-lg px-4 py-2.5 text-lg font-semibold text-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? 'Saving Event...' : 'Save Event'}
-            </button>
-          </form>
-        </div>
-      </section>
-    </Suspense>
+            {isSubmitting ? 'Saving Event...' : 'Save Event'}
+          </button>
+        </form>
+      </div>
+    </section>
   );
 };
 
