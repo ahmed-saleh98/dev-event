@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dev Event
+
+A modern platform for discovering and managing developer events including hackathons, meetups, and conferences. Built with Next.js, TypeScript, and MongoDB.
+
+## Features
+
+- **Event Discovery**: Browse featured developer events
+- **Event Creation**: Create and manage events with image uploads
+- **Event Booking**: Book tickets for events
+- **Responsive Design**: Mobile-first design with Tailwind CSS
+- **Image Management**: Cloudinary integration for event images
+- **Analytics**: PostHog integration for user tracking
+
+## Tech Stack
+
+- **Frontend**: Next.js 16, React 19, TypeScript
+- **Styling**: Tailwind CSS, Lucide React icons
+- **Database**: MongoDB with Mongoose
+- **Image Storage**: Cloudinary
+- **Analytics**: PostHog
+- **Deployment**: Vercel-ready
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- MongoDB database
+- Cloudinary account (for image uploads)
+- PostHog account (optional, for analytics)
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/ahmed-saleh98/dev-event.git
+cd dev-event
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up environment variables:
+   Create a `.env.local` file in the root directory with:
+
+```env
+MONGODB_URI=your_mongodb_connection_string
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+NEXT_PUBLIC_POSTHOG_KEY=your_posthog_key (optional)
+NEXT_PUBLIC_POSTHOG_HOST=your_posthog_host (optional)
+```
+
+4. Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Endpoints
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Events
 
-## Learn More
+- `GET /api/events` - Fetch all events (with pagination support)
+- `POST /api/events` - Create a new event (requires form data with image)
+- `GET /api/events/[slug]` - Fetch a specific event by slug
 
-To learn more about Next.js, take a look at the following resources:
+### Bookings
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Additional booking endpoints available through the booking actions
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Structure
 
-## Deploy on Vercel
+```
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes
+│   ├── create-event/      # Event creation page
+│   └── events/            # Event detail pages
+├── components/            # Reusable React components
+├── database/              # MongoDB models and connection
+├── lib/                   # Utility functions and configurations
+│   ├── actions/           # Server actions
+│   ├── constants/         # App constants
+│   ├── types/             # TypeScript type definitions
+│   └── validation/        # Validation schemas
+└── public/                # Static assets
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is private and proprietary.
+
+## Deployment
+
+The easiest way to deploy this app is to use the [Vercel Platform](https://vercel.com/new) from the creators of Next.js.
+
+Make sure to set up your environment variables in Vercel and connect your MongoDB and Cloudinary accounts.

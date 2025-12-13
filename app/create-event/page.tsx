@@ -2,21 +2,41 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { validateEventForm } from '@/lib/validation/event.validation';
+import { EventFormData, ValidationErrors } from '@/lib/types/event';
+import { VALIDATION } from '@/lib/constants/validation';
+import {
+  FormField,
+  FormFieldWithIcon,
+  FormTextarea,
+  FormSelect,
+  FormFileUpload,
+} from '@/components/forms';
 
+/**
+ * CreateEventPage Component
+ *
+ * A client-side form component for creating new events.
+ * Handles form state, validation, file uploads, and submission to the API.
+ * Redirects to home page on successful event creation.
+ */
 const CreateEventPage = () => {
   const router = useRouter();
+
+  // Form submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<ValidationErrors>({});
 
-  const [formData, setFormData] = useState({
+  // Form data state - stores all input field values
+  const [formData, setFormData] = useState<EventFormData>({
     title: '',
     date: '',
     time: '',
     venue: '',
     location: '',
-    mode: '',
+    mode: 'offline',
     description: '',
     overview: '',
     organizer: '',
@@ -25,8 +45,13 @@ const CreateEventPage = () => {
     agenda: '',
   });
 
+  // Store the selected image file for upload
   const [imageFile, setImageFile] = useState<File | null>(null);
 
+  /**
+   * Handles changes to text inputs, textareas, and select dropdowns
+   * Updates the corresponding field in formData state
+   */
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -36,36 +61,72 @@ const CreateEventPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * Handles file input changes for event image/banner upload
+   * Stores the selected file in state for later submission
+   * Validates file immediately to provide instant feedback
+   */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
+      // Clear previous image error
+      if (fieldErrors.image) {
+        setFieldErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors.image;
+          return newErrors;
+        });
+      }
+    } else {
+      setImageFile(null);
     }
   };
 
+  /**
+   * Handles form submission
+   *
+   * Process:
+   * 1. Validates required fields
+   * 2. Parses tags from comma-separated string to array
+   * 3. Parses agenda from newline-separated string (or uses description as fallback)
+   * 4. Creates FormData with all fields including image file
+   * 5. Submits to /api/events endpoint
+   * 6. Shows success message and redirects to home page
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setFieldErrors({});
 
     try {
-      // Validate required fields
-      if (!formData.title || !formData.date || !formData.time || !formData.venue || 
-          !formData.location || !formData.mode || !formData.description || !imageFile) {
-        throw new Error('Please fill in all required fields');
+      // Validate form using centralized validation function
+      const validation = validateEventForm(formData, imageFile);
+
+      if (!validation.isValid) {
+        setFieldErrors(validation.errors);
+        // Focus on first error field
+        const firstErrorField = Object.keys(validation.errors)[0];
+        if (firstErrorField) {
+          const element = document.getElementById(firstErrorField);
+          element?.focus();
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setIsSubmitting(false);
+        return;
       }
 
-      // Parse tags from comma-separated string
+      // Parse tags from comma-separated string to array
+      // Example: "react, next, js" -> ["react", "next", "js"]
       const tagsArray = formData.tags
         .split(',')
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0);
 
-      if (tagsArray.length === 0) {
-        throw new Error('Please add at least one tag');
-      }
-
       // Parse agenda from newline-separated string or use description as default
+      // Frontend fallback: if agenda is empty, use description as single agenda item
+      // This matches the API's fallback logic
       const agendaArray = formData.agenda
         ? formData.agenda
             .split('\n')
@@ -73,7 +134,7 @@ const CreateEventPage = () => {
             .filter((item) => item.length > 0)
         : [formData.description]; // Use description as default agenda if not provided
 
-      // Create FormData
+      // Create FormData for multipart/form-data submission (required for file upload)
       const submitData = new FormData();
       submitData.append('title', formData.title);
       submitData.append('date', formData.date);
@@ -85,11 +146,12 @@ const CreateEventPage = () => {
       submitData.append('overview', formData.overview || formData.description);
       submitData.append('organizer', formData.organizer || 'DevEvent');
       submitData.append('audience', formData.audience || 'Developers');
+      // Convert arrays to JSON strings for FormData (FormData only accepts strings/files)
       submitData.append('tags', JSON.stringify(tagsArray));
       submitData.append('agenda', JSON.stringify(agendaArray));
       submitData.append('image', imageFile);
 
-      // Submit to API
+      // Submit form data to API endpoint
       const response = await fetch('/api/events', {
         method: 'POST',
         body: submitData,
@@ -98,17 +160,40 @@ const CreateEventPage = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to create event');
+        // Handle field-specific errors from API if available
+        if (data.errors && typeof data.errors === 'object') {
+          setFieldErrors(data.errors);
+        } else {
+          setError(data.message || 'Failed to create event');
+        }
+        setIsSubmitting(false);
+        return;
       }
 
       setSuccess(true);
-      // Redirect to events page after 2 seconds
+      // Reset form on success
+      setFormData({
+        title: '',
+        date: '',
+        time: '',
+        venue: '',
+        location: '',
+        mode: 'offline',
+        description: '',
+        overview: '',
+        organizer: '',
+        audience: '',
+        tags: '',
+        agenda: '',
+      });
+      setImageFile(null);
+
+      // Redirect to home page after 2 seconds to show success message
       setTimeout(() => {
         router.push('/');
       }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -117,7 +202,9 @@ const CreateEventPage = () => {
     return (
       <div className="flex-center min-h-screen">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Event Created Successfully!</h1>
+          <h1 className="text-2xl font-bold mb-4">
+            Event Created Successfully!
+          </h1>
           <p className="text-light-100">Redirecting to home page...</p>
         </div>
       </div>
@@ -127,298 +214,169 @@ const CreateEventPage = () => {
   return (
     <section className="min-h-screen py-12 px-4">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-center text-4xl font-bold mb-12">Create an Event</h1>
+        <h1 className="text-center text-4xl font-bold mb-12">
+          Create an Event
+        </h1>
 
-        <form onSubmit={handleSubmit} className="bg-dark-100 border border-dark-200 rounded-lg p-8 space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-dark-100 border border-dark-200 rounded-lg p-8 space-y-6"
+        >
           {error && (
             <div className="bg-red-500/10 border border-red-500 text-red-400 rounded-lg p-4">
               {error}
             </div>
           )}
 
-          {/* Event Title */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="title" className="text-light-100 text-sm font-medium">
-              Event Title
-            </label>
-            <input
-              type="text"
-              id="title"
-              name="title"
-              value={formData.title}
-              onChange={handleInputChange}
-              placeholder="Enter event title"
-              required
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <FormField
+            label="Event Title"
+            name="title"
+            value={formData.title}
+            onChange={handleInputChange}
+            placeholder="Enter event title"
+            required
+            error={fieldErrors.title}
+            maxLength={VALIDATION.MAX_TITLE_LENGTH}
+            showCharCount
+          />
 
-          {/* Event Date */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="date" className="text-light-100 text-sm font-medium">
-              Event Date
-            </label>
-            <div className="relative">
-              <Image
-                src="/icons/calendar.svg"
-                alt="calendar"
-                width={20}
-                height={20}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2"
-              />
-              <input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={handleInputChange}
-                required
-                className="bg-dark-200 rounded-lg px-5 py-2.5 pl-12 text-light-100 w-full focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
+          <FormFieldWithIcon
+            label="Event Date"
+            name="date"
+            type="date"
+            value={formData.date}
+            onChange={handleInputChange}
+            icon="/icons/calendar.svg"
+            iconAlt="calendar"
+            required
+            error={fieldErrors.date}
+            min={new Date().toISOString().split('T')[0]}
+          />
 
-          {/* Event Time */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="time" className="text-light-100 text-sm font-medium">
-              Event Time
-            </label>
-            <div className="relative">
-              <Image
-                src="/icons/clock.svg"
-                alt="clock"
-                width={20}
-                height={20}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2"
-              />
-              <input
-                type="time"
-                id="time"
-                name="time"
-                value={formData.time}
-                onChange={handleInputChange}
-                required
-                className="bg-dark-200 rounded-lg px-5 py-2.5 pl-12 text-light-100 w-full focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
+          <FormFieldWithIcon
+            label="Event Time"
+            name="time"
+            type="time"
+            value={formData.time}
+            onChange={handleInputChange}
+            icon="/icons/clock.svg"
+            iconAlt="clock"
+            required
+            error={fieldErrors.time}
+          />
 
-          {/* Event Location/Venue */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="venue" className="text-light-100 text-sm font-medium">
-              Event Location
-            </label>
-            <div className="relative">
-              <Image
-                src="/icons/pin.svg"
-                alt="location"
-                width={20}
-                height={20}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2"
-              />
-              <input
-                type="text"
-                id="venue"
-                name="venue"
-                value={formData.venue}
-                onChange={handleInputChange}
-                placeholder="Enter venue or online link"
-                required
-                className="bg-dark-200 rounded-lg px-5 py-2.5 pl-12 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
+          <FormFieldWithIcon
+            label="Event Location"
+            name="venue"
+            type="text"
+            value={formData.venue}
+            onChange={handleInputChange}
+            icon="/icons/pin.svg"
+            iconAlt="location"
+            placeholder="Enter venue or online link"
+            required
+            error={fieldErrors.venue}
+          />
 
-          {/* Location (for address) */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="location" className="text-light-100 text-sm font-medium">
-              Location Address
-            </label>
-            <input
-              type="text"
-              id="location"
-              name="location"
-              value={formData.location}
-              onChange={handleInputChange}
-              placeholder="Enter full address (e.g., City, Country)"
-              required
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <FormField
+            label="Location Address"
+            name="location"
+            value={formData.location}
+            onChange={handleInputChange}
+            placeholder="Enter full address (e.g., City, Country)"
+            required
+            error={fieldErrors.location}
+          />
 
-          {/* Event Type (Mode) */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="mode" className="text-light-100 text-sm font-medium">
-              Event Type
-            </label>
-            <div className="relative">
-              <Image
-                src="/icons/mode.svg"
-                alt="mode"
-                width={20}
-                height={20}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10"
-              />
-              <select
-                id="mode"
-                name="mode"
-                value={formData.mode}
-                onChange={handleInputChange}
-                required
-                className="bg-dark-200 rounded-lg px-5 py-2.5 pl-12 text-light-100 w-full appearance-none focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
-              >
-                <option value="">Select event type</option>
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
-              <Image
-                src="/icons/arrow-down.svg"
-                alt="dropdown"
-                width={16}
-                height={16}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none"
-              />
-            </div>
-          </div>
+          <FormSelect
+            label="Event Type"
+            name="mode"
+            value={formData.mode}
+            onChange={handleInputChange}
+            icon="/icons/mode.svg"
+            iconAlt="mode"
+            options={[
+              { value: 'online', label: 'Online' },
+              { value: 'offline', label: 'Offline' },
+              { value: 'hybrid', label: 'Hybrid' },
+            ]}
+            required
+            error={fieldErrors.mode}
+            placeholder="Select event type"
+          />
 
-          {/* Event Image/Banner */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="image" className="text-light-100 text-sm font-medium">
-              Event Image / Banner
-            </label>
-            <div className="relative">
-              <input
-                type="file"
-                id="image"
-                name="image"
-                accept="image/*"
-                onChange={handleFileChange}
-                required
-                className="hidden"
-              />
-              <label
-                htmlFor="image"
-                className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 w-full flex items-center gap-3 cursor-pointer hover:bg-dark-200/80 transition-colors border border-transparent hover:border-primary/20"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="text-light-200"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                <span className="text-light-200">
-                  {imageFile ? imageFile.name : 'Upload event image or banner'}
-                </span>
-              </label>
-            </div>
-          </div>
+          <FormFileUpload
+            label="Event Image / Banner"
+            name="image"
+            onChange={handleFileChange}
+            required
+            error={fieldErrors.image}
+            selectedFile={imageFile}
+            maxSizeMB={VALIDATION.MAX_FILE_SIZE / (1024 * 1024)}
+            allowedFormats="JPEG, PNG, WebP"
+          />
 
-          {/* Tags */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="tags" className="text-light-100 text-sm font-medium">
-              Tags
-            </label>
-            <input
-              type="text"
-              id="tags"
-              name="tags"
-              value={formData.tags}
-              onChange={handleInputChange}
-              placeholder="Add tags such as react, next, js"
-              required
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <p className="text-light-200 text-xs">Separate tags with commas</p>
-          </div>
+          <FormField
+            label="Tags"
+            name="tags"
+            value={formData.tags}
+            onChange={handleInputChange}
+            placeholder="Add tags such as react, next, js"
+            required
+            error={fieldErrors.tags}
+            helpText="Separate tags with commas"
+          />
 
-          {/* Event Description */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="description" className="text-light-100 text-sm font-medium">
-              Event Description
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              placeholder="Briefly describe the event"
-              required
-              rows={4}
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
+          <FormTextarea
+            label="Event Description"
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
+            placeholder="Briefly describe the event"
+            required
+            error={fieldErrors.description}
+            maxLength={VALIDATION.MAX_DESCRIPTION_LENGTH}
+            showCharCount
+            rows={4}
+          />
 
-          {/* Additional fields (hidden but can be shown if needed) */}
-          <div className="flex flex-col gap-2">
-            <label htmlFor="overview" className="text-light-100 text-sm font-medium">
-              Overview (Optional)
-            </label>
-            <textarea
-              id="overview"
-              name="overview"
-              value={formData.overview}
-              onChange={handleInputChange}
-              placeholder="Brief overview of the event"
-              rows={3}
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
+          <FormTextarea
+            label="Overview"
+            name="overview"
+            value={formData.overview}
+            onChange={handleInputChange}
+            placeholder="Brief overview of the event"
+            error={fieldErrors.overview}
+            maxLength={VALIDATION.MAX_OVERVIEW_LENGTH}
+            showCharCount
+            rows={3}
+          />
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="organizer" className="text-light-100 text-sm font-medium">
-              Organizer (Optional)
-            </label>
-            <input
-              type="text"
-              id="organizer"
-              name="organizer"
-              value={formData.organizer}
-              onChange={handleInputChange}
-              placeholder="Event organizer name"
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <FormField
+            label="Organizer"
+            name="organizer"
+            value={formData.organizer}
+            onChange={handleInputChange}
+            placeholder="Event organizer name"
+          />
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="audience" className="text-light-100 text-sm font-medium">
-              Target Audience (Optional)
-            </label>
-            <input
-              type="text"
-              id="audience"
-              name="audience"
-              value={formData.audience}
-              onChange={handleInputChange}
-              placeholder="e.g., Developers, Designers, etc."
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <FormField
+            label="Target Audience"
+            name="audience"
+            value={formData.audience}
+            onChange={handleInputChange}
+            placeholder="e.g., Developers, Designers, etc."
+          />
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="agenda" className="text-light-100 text-sm font-medium">
-              Agenda (Optional)
-            </label>
-            <textarea
-              id="agenda"
-              name="agenda"
-              value={formData.agenda}
-              onChange={handleInputChange}
-              placeholder="Enter agenda items, one per line"
-              rows={4}
-              className="bg-dark-200 rounded-lg px-5 py-2.5 text-light-100 placeholder:text-light-200 w-full focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-            <p className="text-light-200 text-xs">Enter one agenda item per line</p>
-          </div>
+          <FormTextarea
+            label="Agenda"
+            name="agenda"
+            value={formData.agenda}
+            onChange={handleInputChange}
+            placeholder="Enter agenda items, one per line"
+            helpText="Enter one agenda item per line"
+            rows={4}
+          />
 
           {/* Submit Button */}
           <button
@@ -435,4 +393,3 @@ const CreateEventPage = () => {
 };
 
 export default CreateEventPage;
-

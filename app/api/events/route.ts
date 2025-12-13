@@ -4,6 +4,8 @@ import { v2 as cloudinary } from 'cloudinary';
 
 import connectDB from '@/lib/mongodb';
 import Event from '@/database/event.model';
+import { validateImageFile } from '@/lib/validation/event.validation';
+import { ApiResponse } from '@/lib/types/api';
 
 /**
  * POST /api/events
@@ -25,19 +27,70 @@ export async function POST(req: NextRequest) {
 
     // Extract and validate image file
     const file = formData.get('image') as File;
-    if (!file || !(file instanceof File))
-      return NextResponse.json(
+    if (!file || !(file instanceof File)) {
+      return NextResponse.json<ApiResponse>(
         { message: 'Image file is required' },
         { status: 400 }
       );
+    }
+
+    // Validate file size, type, and extension
+    const fileValidationError = validateImageFile(file);
+    if (fileValidationError) {
+      return NextResponse.json<ApiResponse>(
+        { message: fileValidationError },
+        { status: 400 }
+      );
+    }
 
     // Extract all form fields except image, tags, and agenda
     // These will be handled separately due to their special formats
-    const event: Record<string, string> = {};
+    // Using proper typing instead of Record<string, string>
+    const event: {
+      title: string;
+      date: string;
+      time: string;
+      venue: string;
+      location: string;
+      mode: string;
+      description: string;
+      overview: string;
+      organizer: string;
+      audience: string;
+      image?: string;
+    } = {
+      title: '',
+      date: '',
+      time: '',
+      venue: '',
+      location: '',
+      mode: '',
+      description: '',
+      overview: '',
+      organizer: '',
+      audience: '',
+    };
+
+    // Extract form fields
     for (const [key, value] of formData.entries()) {
       if (key !== 'image' && key !== 'tags' && key !== 'agenda') {
-        event[key] = value as string;
+        const stringValue = value as string;
+        if (key in event) {
+          (event as Record<string, string>)[key] = stringValue;
+        }
       }
+    }
+
+    // Set defaults for required fields that might be empty
+    // These fields are required by the database schema but optional in the form
+    if (!event.overview || event.overview.trim() === '') {
+      event.overview = event.description || 'Event overview';
+    }
+    if (!event.organizer || event.organizer.trim() === '') {
+      event.organizer = 'DevEvent';
+    }
+    if (!event.audience || event.audience.trim() === '') {
+      event.audience = 'Developers';
     }
 
     // Extract tags, agenda, and description for special processing
@@ -108,6 +161,18 @@ export async function POST(req: NextRequest) {
     // Add Cloudinary image URL to event data
     event.image = (uploadResult as { secure_url: string }).secure_url;
 
+    // Ensure required fields have values (database schema requires these)
+    // Set defaults if they're empty or undefined
+    if (!event.overview || event.overview.trim() === '') {
+      event.overview = event.description || 'Event overview';
+    }
+    if (!event.organizer || event.organizer.trim() === '') {
+      event.organizer = 'DevEvent';
+    }
+    if (!event.audience || event.audience.trim() === '') {
+      event.audience = 'Developers';
+    }
+
     // Create event in database with all fields
     const createdEvent = await Event.create({
       ...event,
@@ -124,12 +189,20 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (e) {
-    // Log error for debugging and return user-friendly error message
-    console.error(e);
-    return NextResponse.json(
+    // Log error for debugging
+    console.error('Event creation error:', e);
+
+    // Don't expose internal error details in production
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const errorMessage =
+      isDevelopment && e instanceof Error
+        ? e.message
+        : 'An unexpected error occurred while creating the event';
+
+    return NextResponse.json<ApiResponse>(
       {
         message: 'Event Creation Failed',
-        error: e instanceof Error ? e.message : 'Unknown',
+        error: errorMessage,
       },
       { status: 500 }
     );
@@ -138,26 +211,76 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/events
- * Fetches all events from the database, sorted by creation date (newest first)
+ * Fetches events from the database with optional pagination
  *
- * Returns: Array of event objects
+ * Query parameters:
+ * - page: Page number (default: 1)
+ * - limit: Items per page (default: 10, max: 100)
+ *
+ * Returns: Paginated array of event objects
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     // Connect to MongoDB database
     await connectDB();
 
-    // Fetch all events, sorted by creation date (newest first)
-    const events = await Event.find().sort({ createdAt: -1 });
-
-    return NextResponse.json(
-      { message: 'Events fetched successfully', events },
-      { status: 200 }
+    // Parse pagination parameters from query string
+    const searchParams = req.nextUrl.searchParams;
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get('limit') || '10', 10))
     );
+    const skip = (page - 1) * limit;
+
+    // Fetch events with pagination, sorted by creation date (newest first)
+    // Only select fields needed for listing to improve performance
+    const events = await Event.find()
+      .select('title slug image location date time mode tags')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Get total count for pagination metadata
+    const total = await Event.countDocuments();
+
+    // Return response with events array for backward compatibility
+    // Also include pagination metadata if pagination is used
+    const response: ApiResponse & { events?: unknown[]; pagination?: unknown } =
+      {
+        message: 'Events fetched successfully',
+        events, // Keep for backward compatibility
+        data: events, // New format
+      };
+
+    // Only include pagination if limit is less than total (pagination is active)
+    if (limit < total) {
+      response.pagination = {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      };
+    }
+
+    return NextResponse.json(response, { status: 200 });
   } catch (e) {
-    // Return error if database query fails
-    return NextResponse.json(
-      { message: 'Event fetching failed', error: e },
+    // Log error for debugging
+    console.error('Event fetching error:', e);
+
+    // Don't expose internal error details in production
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const errorMessage =
+      isDevelopment && e instanceof Error
+        ? e.message
+        : 'An unexpected error occurred while fetching events';
+
+    return NextResponse.json<ApiResponse>(
+      {
+        message: 'Event fetching failed',
+        error: errorMessage,
+      },
       { status: 500 }
     );
   }

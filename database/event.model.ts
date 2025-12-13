@@ -1,6 +1,11 @@
 import { Schema, model, models, Document } from 'mongoose';
 
-// TypeScript interface for Event document
+/**
+ * TypeScript interface for Event document
+ *
+ * Defines the structure of an Event document in MongoDB.
+ * All fields are required except those with default values.
+ */
 export interface IEvent extends Document {
   title: string;
   slug: string;
@@ -20,55 +25,72 @@ export interface IEvent extends Document {
   updatedAt: Date;
 }
 
+/**
+ * Event Schema Definition
+ *
+ * Mongoose schema for Event documents with validation rules and indexes.
+ * Includes pre-save hooks for automatic slug generation and data normalization.
+ */
 const EventSchema = new Schema<IEvent>(
   {
+    // Event title - required, max 100 characters
     title: {
       type: String,
       required: [true, 'Title is required'],
       trim: true,
       maxlength: [100, 'Title cannot exceed 100 characters'],
     },
+    // URL-friendly slug - auto-generated from title, must be unique
     slug: {
       type: String,
       unique: true,
       lowercase: true,
       trim: true,
+      index: true,
     },
+    // Full event description - required, max 1000 characters
     description: {
       type: String,
       required: [true, 'Description is required'],
       trim: true,
       maxlength: [1000, 'Description cannot exceed 1000 characters'],
     },
+    // Brief overview - required, max 500 characters
     overview: {
       type: String,
       required: [true, 'Overview is required'],
       trim: true,
       maxlength: [500, 'Overview cannot exceed 500 characters'],
     },
+    // Cloudinary image URL - required
     image: {
       type: String,
       required: [true, 'Image URL is required'],
       trim: true,
     },
+    // Venue name or online link - required
     venue: {
       type: String,
       required: [true, 'Venue is required'],
       trim: true,
     },
+    // Full location address - required
     location: {
       type: String,
       required: [true, 'Location is required'],
       trim: true,
     },
+    // Event date in ISO format (YYYY-MM-DD) - auto-normalized
     date: {
       type: String,
       required: [true, 'Date is required'],
     },
+    // Event time in 24-hour format (HH:MM) - auto-normalized
     time: {
       type: String,
       required: [true, 'Time is required'],
     },
+    // Event mode - must be one of: online, offline, hybrid
     mode: {
       type: String,
       required: [true, 'Mode is required'],
@@ -77,11 +99,13 @@ const EventSchema = new Schema<IEvent>(
         message: 'Mode must be either online, offline, or hybrid',
       },
     },
+    // Target audience description - required
     audience: {
       type: String,
       required: [true, 'Audience is required'],
       trim: true,
     },
+    // Array of agenda items - must have at least one item
     agenda: {
       type: [String],
       required: [true, 'Agenda is required'],
@@ -90,11 +114,13 @@ const EventSchema = new Schema<IEvent>(
         message: 'At least one agenda item is required',
       },
     },
+    // Event organizer name - required
     organizer: {
       type: String,
       required: [true, 'Organizer is required'],
       trim: true,
     },
+    // Array of tags for categorization - must have at least one tag
     tags: {
       type: [String],
       required: [true, 'Tags are required'],
@@ -105,31 +131,71 @@ const EventSchema = new Schema<IEvent>(
     },
   },
   {
-    timestamps: true, // Auto-generate createdAt and updatedAt
+    // Enable automatic createdAt and updatedAt timestamps
+    timestamps: true,
   }
 );
 
-// Pre-save hook for slug generation and data normalization
+/**
+ * Pre-save Hook
+ *
+ * Automatically runs before saving an event document.
+ * Handles:
+ * - Slug generation from title (if title changed or document is new)
+ * - Date normalization to ISO format (YYYY-MM-DD)
+ * - Time normalization to 24-hour format (HH:MM)
+ */
 EventSchema.pre('save', async function () {
   const event = this as IEvent;
 
   // Generate slug only if title changed or document is new
+  // This ensures slugs are always up-to-date with titles
   if (event.isModified('title') || event.isNew) {
-    event.slug = generateSlug(event.title);
+    let slug = generateSlug(event.title);
+
+    // Handle duplicate slugs by appending a counter
+    // This prevents slug collisions when multiple events have similar titles
+    let counter = 1;
+    const existingEvent = await Event.findOne({
+      slug,
+      _id: { $ne: event._id },
+    });
+
+    while (existingEvent) {
+      slug = `${generateSlug(event.title)}-${counter}`;
+      const checkEvent = await Event.findOne({ slug, _id: { $ne: event._id } });
+      if (!checkEvent) break;
+      counter++;
+    }
+
+    event.slug = slug;
   }
 
   // Normalize date to ISO format if it's not already
+  // Ensures consistent date format in database
   if (event.isModified('date')) {
     event.date = normalizeDate(event.date);
   }
 
-  // Normalize time format (HH:MM)
+  // Normalize time format to 24-hour (HH:MM)
+  // Converts 12-hour format to 24-hour if needed
   if (event.isModified('time')) {
     event.time = normalizeTime(event.time);
   }
 });
 
-// Helper function to generate URL-friendly slug
+/**
+ * Generates a URL-friendly slug from a title
+ *
+ * Process:
+ * 1. Convert to lowercase
+ * 2. Remove special characters
+ * 3. Replace spaces with hyphens
+ * 4. Remove duplicate hyphens
+ * 5. Remove leading/trailing hyphens
+ *
+ * Example: "React Summit 2025!" -> "react-summit-2025"
+ */
 function generateSlug(title: string): string {
   return title
     .toLowerCase()
@@ -140,7 +206,11 @@ function generateSlug(title: string): string {
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
 }
 
-// Helper function to normalize date to ISO format
+/**
+ * Normalizes a date string to ISO format (YYYY-MM-DD)
+ *
+ * @throws Error if date format is invalid
+ */
 function normalizeDate(dateString: string): string {
   const date = new Date(dateString);
   if (isNaN(date.getTime())) {
@@ -149,7 +219,15 @@ function normalizeDate(dateString: string): string {
   return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
 }
 
-// Helper function to normalize time format
+/**
+ * Normalizes a time string to 24-hour format (HH:MM)
+ *
+ * Supports:
+ * - 24-hour format: "14:30"
+ * - 12-hour format: "2:30 PM" or "02:30 PM"
+ *
+ * @throws Error if time format or values are invalid
+ */
 function normalizeTime(timeString: string): string {
   // Handle various time formats and convert to HH:MM (24-hour format)
   const timeRegex = /^(\d{1,2}):(\d{2})(\s*(AM|PM))?$/i;
@@ -163,12 +241,13 @@ function normalizeTime(timeString: string): string {
   const minutes = match[2];
   const period = match[4]?.toUpperCase();
 
+  // Convert 12-hour to 24-hour format if period is provided
   if (period) {
-    // Convert 12-hour to 24-hour format
     if (period === 'PM' && hours !== 12) hours += 12;
     if (period === 'AM' && hours === 12) hours = 0;
   }
 
+  // Validate time values
   if (
     hours < 0 ||
     hours > 23 ||
@@ -178,13 +257,12 @@ function normalizeTime(timeString: string): string {
     throw new Error('Invalid time values');
   }
 
+  // Return formatted time with leading zeros
   return `${hours.toString().padStart(2, '0')}:${minutes}`;
 }
 
-// Create unique index on slug for better performance
-EventSchema.index({ slug: 1 }, { unique: true });
-
-// Create compound index for common queries
+// Create compound index for common queries (e.g., find events by date and mode)
+// Improves query performance for filtering events
 EventSchema.index({ date: 1, mode: 1 });
 
 const Event = models.Event || model<IEvent>('Event', EventSchema);

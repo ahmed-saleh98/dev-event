@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Event, { IEvent } from '@/database/event.model';
 
-// Define route params type for type safety
+/**
+ * Route params type for type safety
+ * Next.js 15+ requires params to be a Promise
+ */
 type RouteParams = {
   params: Promise<{
     slug: string;
@@ -12,7 +15,19 @@ type RouteParams = {
 
 /**
  * GET /api/events/[slug]
- * Fetches a single events by its slug
+ * 
+ * Fetches a single event by its URL-friendly slug.
+ * 
+ * @param req - Next.js request object
+ * @param params - Route parameters containing the event slug
+ * @returns Event data or error response
+ * 
+ * Process:
+ * 1. Validates slug parameter
+ * 2. Sanitizes slug (lowercase, trim)
+ * 3. Queries database for event with matching slug
+ * 4. Returns 404 if event not found
+ * 5. Returns event data on success
  */
 export async function GET(
   req: NextRequest,
