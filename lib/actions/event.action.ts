@@ -1,15 +1,16 @@
 'use server';
 
 import { Event } from '@/database';
+import connectDB from '../mongodb';
 
 /**
  * getSimilarEventsBySlug
- * 
+ *
  * Server action to find events similar to a given event based on shared tags.
- * 
+ *
  * @param slug - The slug of the event to find similar events for
  * @returns Array of similar events (excluding the current event)
- * 
+ *
  * Logic:
  * 1. Find the event by slug
  * 2. Find other events that share at least one tag with the current event
@@ -18,6 +19,7 @@ import { Event } from '@/database';
  */
 export const getSimilarEventsBySlug = async (slug: string) => {
   try {
+    await connectDB();
     // Find the current event to get its tags
     const event = await Event.findOne({ slug });
 
