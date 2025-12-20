@@ -270,4 +270,7 @@
       }
     }
   }
+  .skeleton {
+    @apply animate-pulse bg-dark-200 rounded-lg;
+  }
 }
