@@ -41,7 +41,7 @@ const page = async () => {
             events.length > 0 &&
             events.map((event: IEvent) => (
               <li key={event.slug}>
-                <EventCard {...event} />
+                <EventCard {...event} loading="eager" />
               </li>
             ))}
         </ul>

@@ -104,6 +104,7 @@ const EventDetails = async ({ params }: { params: Promise<string> }) => {
         {/*    Left Side - Event Content */}
         <div className="content">
           <Image
+            fetchPriority="high"
             src={image}
             alt="Event Banner"
             width={800}
@@ -166,7 +167,11 @@ const EventDetails = async ({ params }: { params: Promise<string> }) => {
         <div className="events">
           {similarEvents.length > 0 &&
             similarEvents.map((similarEvent: IEvent) => (
-              <EventCard key={similarEvent.title} {...similarEvent} />
+              <EventCard
+                key={similarEvent.title}
+                {...similarEvent}
+                loading="lazy"
+              />
             ))}
         </div>
       </div>

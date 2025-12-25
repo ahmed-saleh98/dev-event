@@ -11,6 +11,7 @@ interface Props {
   location: string;
   date: string;
   time: string;
+  loading?: 'eager' | 'lazy';
 }
 
 /**
@@ -31,29 +32,31 @@ interface Props {
  * @param date - Event date
  * @param time - Event time
  */
-const EventCard = ({ title, image, slug, location, date, time }: Props) => {
+const EventCard = ({
+  title,
+  image,
+  slug,
+  location,
+  date,
+  time,
+  loading,
+}: Props) => {
   return (
-    <Link href={`/events/${slug}`} id="event-card">
+    <Link rel="preload" href={`/events/${slug}`} id="event-card">
       {/* Event banner image */}
       <Image
-        fetchPriority="high"
+        loading={loading === 'lazy' ? 'lazy' : 'eager'}
+        fetchPriority={loading === 'lazy' ? 'low' : 'high'}
         src={image}
         alt={title}
         width={410}
         height={300}
         className="poster"
-        loading="lazy"
       />
 
       {/* Location display with icon */}
       <div className="flex flex-row gap-2">
-        <Image
-          fetchPriority="high"
-          src="/icons/pin.svg"
-          alt="location"
-          width={14}
-          height={14}
-        />
+        <Image src="/icons/pin.svg" alt="location" width={14} height={14} />
         <p>{location}</p>
       </div>
 
@@ -63,23 +66,11 @@ const EventCard = ({ title, image, slug, location, date, time }: Props) => {
       {/* Date and time display with icons */}
       <div className="datetime">
         <div>
-          <Image
-            fetchPriority="high"
-            src="/icons/calendar.svg"
-            alt="date"
-            width={14}
-            height={14}
-          />
+          <Image src="/icons/calendar.svg" alt="date" width={14} height={14} />
           <p>{date}</p>
         </div>
         <div>
-          <Image
-            fetchPriority="high"
-            src="/icons/clock.svg"
-            alt="time"
-            width={14}
-            height={14}
-          />
+          <Image src="/icons/clock.svg" alt="time" width={14} height={14} />
           <p>{time}</p>
         </div>
       </div>
