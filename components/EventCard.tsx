@@ -42,6 +42,7 @@ const EventCard = ({ title, image, slug, location, date, time }: Props) => {
         width={410}
         height={300}
         className="poster"
+        loading="lazy"
       />
 
       {/* Location display with icon */}
